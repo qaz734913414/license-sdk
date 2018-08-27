@@ -1,0 +1,18 @@
+#ifndef SL_2D_FACE_COMMON_H__
+#define SL_2D_FACE_COMMON_H__
+
+#define SL_OK 0
+
+#define SL_E_LICENSE_CFG_ERR 100
+#define SL_E_LICENSE_CONTENT_ERR 101
+#define SL_E_LICENSE_NOT_SUIT 102
+#define SL_E_LICENSE_EXPIRED 103
+#define SL_E_LICENSE_OS_ERR 104
+#define SL_E_LICENSE_NETWORK_ERR 105
+#define SL_E_LICENSE_INVAILD_SERIAL 106
+
+#define SL_E_DECRYPT_OS_ERR 200
+
+typedef int SlErrorCode;
+
+#endif
