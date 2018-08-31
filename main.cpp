@@ -1,13 +1,17 @@
 #include <iostream>
 #include <string>
-#include "license.h"
-#include "aes_ex.h"
+#include "lib/sl_2d_face_license.h"
+#include <unistd.h>
 
 using namespace std;
 
 int main(int argc, char** argv)
 {
-	cout << verify("cfg.ni") << endl;
+	while(1)
+	{
+		sleep(1);
+		cout << Sl2DFaceLisence("/tmp") << endl;
+	}
 
 	
 	/*

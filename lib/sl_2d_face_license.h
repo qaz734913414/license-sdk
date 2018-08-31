@@ -12,7 +12,7 @@ extern "C" {
  *       addr： license服务的地址，首次认证时使用。形式为域名或ip:port，暂时传入"114.116.39.66:8898"
  * 返回值：认证成功返回0，其他为失败
  */
-SlErrorCode Sl2DFaceLisence();
+SlErrorCode Sl2DFaceLisence(const char* cfg_file);
 
 /*
  * 解密接口
@@ -22,6 +22,11 @@ SlErrorCode Sl2DFaceLisence();
  * 返回值：0成功，其他失败
  */
 SlErrorCode Sl2DFaceDecrypt(const char* en, char* de,int& len);
+
+/*
+ * 资源释放接口
+ */
+SlErrorCode Sl2DFaceDecryptRelease();
 
 #ifdef __cplusplus
 }

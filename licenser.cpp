@@ -25,6 +25,7 @@ namespace tutils {
 
 Licenser::Licenser()
 	: m_iFlag(0)
+	, m_iExpireTs(-1)
 {
 	m_strLicensePath = getLicensePath();
 	std::thread thread_ = std::thread(&Licenser::cache, this);
@@ -55,17 +56,26 @@ string Licenser::getLicensePath()
 
 int Licenser::verify(const string& fn)
 {
-	if(m_iFlag == 1) return 0;
+	if(m_iFlag == 1 || m_iExpireTs == 0) return 0;
+	if(m_iExpireTs > 0)
+	{
+		int now = getTime();
+		if(now > m_iExpireTs)
+		{
+			return SL_E_LICENSE_EXPIRED;
+		}
+		return 0;
+	}
     int ret = 0;
-    std::ifstream ifs(m_strLicensePath+"/license");
+    std::ifstream ifs(fn+"/license/license");
     if (!ifs.is_open())
     {
-        IniOper io(fn);
+        IniOper io(fn+"/license_cfg.ini");
         string serial = io.get("license", "serial");
         string ip = io.get("license", "addr");
         if(serial.empty() || ip.empty()) return SL_E_LICENSE_CFG_ERR;
-        if((ret = createLicense(serial, ip)) != 0) return ret;
-        else ifs.open(m_strLicensePath+"/license");
+        if((ret = createLicense(fn, serial, ip)) != 0) return ret;
+        else ifs.open(fn+"/license/license");
     }
  
  	if(!ifs.is_open()) return SL_E_LICENSE_OS_ERR;
@@ -74,9 +84,12 @@ int Licenser::verify(const string& fn)
     ifs >> fc;
     ifs.close();
 
-    std::string dfc = AESDecrypt(fc);
-    std::vector<std::string> vStr = splitStr(dfc);
-    if (vStr.size() != 2)
+	std::string dfc = deconfusion(fc);
+	cout << fc <<endl;
+	cout << dfc << endl;
+    std::string ddfc = AESDecrypt(dfc);
+    std::vector<std::string> vStr = splitStr(ddfc);
+    if (vStr.size() != 3)
     {   
         return SL_E_LICENSE_CONTENT_ERR;
     }   
@@ -84,30 +97,52 @@ int Licenser::verify(const string& fn)
     if (getCpuId() != vStr[0])
     {   
         return SL_E_LICENSE_NOT_SUIT;
-    }   
-    if(vStr[1] != "0")
+    }
+	if (!vStr[1].empty())
+	{
+		vector<string> vMac;
+		int r = getMac(vMac);
+		if(r != 0) return SL_E_LICENSE_OS_ERR;
+		int flag = 0;
+		for(auto && mac : vMac)
+		{
+			if(mac == vStr[1])
+			{
+				flag = 1;
+				break;
+			}
+		}
+		if(flag != 1) return SL_E_LICENSE_NOT_SUIT;
+	}
+    if(vStr[2] != "0")
     {   
         int now = getTime();
-        if (now > stoi(vStr[1]))
+        if (now > stoi(vStr[2]))
         {
             return SL_E_LICENSE_EXPIRED;
         }
     }
 	m_iFlag = 1;
+	m_iExpireTs = stoi(vStr[2]);
 	return 0;
 }
 
-int Licenser::createLicense(const string& serial, const string& ip)
+int Licenser::createLicense(const string& path, const string& serial, const string& ip)
 {
     std::string cpuid = getCpuId();
+	std::vector<std::string> vMac;
+	int ret = getMac(vMac);
+	if(ret != 0) return SL_E_LICENSE_OS_ERR;
     if (cpuid.empty())
     {   
         return SL_E_LICENSE_OS_ERR;
     }
+	string hardwareid = cpuid + "|";
+	if(!vMac.empty()) hardwareid += vMac[0];
     
     string resp;
-    HttpClient hc(serial, cpuid, ip);
-    int ret = hc.doGet(resp); 
+    HttpClient hc(serial, hardwareid, ip);
+    ret = hc.doGet(resp); 
     if(ret != 0)
     {   
         return SL_E_LICENSE_NETWORK_ERR;
@@ -123,15 +158,16 @@ int Licenser::createLicense(const string& serial, const string& ip)
         return SL_E_LICENSE_INVAILD_SERIAL;
     }
     
+	string pf = path + "/license";
 	#if defined(__GNUC__)
-    ret = mkdir(m_strLicensePath.c_str(), S_IRUSR | S_IWUSR | S_IXUSR | S_IRWXG | S_IRWXO);
+    ret = mkdir(pf.c_str(), S_IRUSR | S_IWUSR | S_IXUSR | S_IRWXG | S_IRWXO);
     #else
-    ret = _mkdir(m_strLicensePath.c_str());
+    ret = _mkdir(pf.c_str());
     #endif
 	if(ret != 0) return SL_E_LICENSE_OS_ERR;
     
     fstream ofs;
-    ofs.open(m_strLicensePath+"/license", ios::out);
+    ofs.open(path+"/license/license", ios::out);
     
     ofs << license;
     ofs.close();

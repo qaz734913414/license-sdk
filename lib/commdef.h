@@ -5,10 +5,75 @@
 #include <vector>
 #include <stdint.h>
 #include <ctime>
-
+#include <string.h>
+#include <iostream>
 #include "jparser.h"
 
+#if defined(__GNUC__)
+#include <sys/ioctl.h>
+#include <net/if.h>
+#include <unistd.h>
+#include <netinet/in.h>
+#endif
+
+using namespace std;
+ 
 namespace tutils {
+string deconfusion(const std::string& raw)
+{
+	int i = 0, len = 0, dis = 0;
+	string res;
+	while(1)
+	{
+		dis = (2*i+1) % 77;
+		++i;
+		len += dis+1;
+		if(i == 1) len -= 1;
+		if((unsigned int)len > raw.size()) break;
+		res.append(1, raw[len]);
+	}
+	return res;
+}
+
+int getMac(vector<string>& vMac)
+{
+	#if defined(__GNUC__)
+    struct ifreq ifr;
+    struct ifconf ifc;
+    char buf[2048];
+ 
+    int sock = socket(AF_INET, SOCK_DGRAM, IPPROTO_IP);
+    if (sock == -1) {
+        return -1;
+    }
+ 
+    ifc.ifc_len = sizeof(buf);
+    ifc.ifc_buf = buf;
+    if (ioctl(sock, SIOCGIFCONF, &ifc) == -1) {
+        return -1;
+    }
+ 
+    struct ifreq* it = ifc.ifc_req;
+    const struct ifreq* const end = it + (ifc.ifc_len / sizeof(struct ifreq));
+    char szMac[64];
+    for (; it != end; ++it) {
+		if(string(it->ifr_name).find("docker") != string::npos)
+			continue;
+        strcpy(ifr.ifr_name, it->ifr_name);
+        if (ioctl(sock, SIOCGIFFLAGS, &ifr) == 0) {
+            if (! (ifr.ifr_flags & IFF_LOOPBACK)) { // don't count loopback
+                if (ioctl(sock, SIOCGIFHWADDR, &ifr) == 0) {
+                    unsigned char * ptr ;
+                    ptr = (unsigned char  *)&ifr.ifr_ifru.ifru_hwaddr.sa_data[0];
+                    snprintf(szMac,64,"%02X:%02X:%02X:%02X:%02X:%02X",*ptr,*(ptr+1),*(ptr+2),*(ptr+3),*(ptr+4),*(ptr+5));
+					vMac.push_back(szMac);
+                }
+            }
+        }
+    }
+	#endif
+	return 0;
+}
 
 inline int getTime()
 {

@@ -17,18 +17,17 @@
 #include <direct.h>
 #endif
 
-SlErrorCode Sl2DFaceLisence()
+SlErrorCode Sl2DFaceLisence(const char* cfg_file)
 {
-	return tutils::Licenser::getInstance()->verify();
+	return tutils::Licenser::getInstance()->verify(cfg_file);
 }
 
 SlErrorCode Sl2DFaceDecrypt(const char* en, char* de, int& len)
 {
-	string s = tutils::AESDecrypt(en);
-	len = s.length() + 1;
-	de = (char*)malloc(len);
-	if(!de) return SL_E_DECRYPT_OS_ERR;
-	memset(de, 0, len);
-	memcpy(de, s.c_str(), len);
-	return SL_OK;
+	return tutils::Licenser::getInstance()->decrypt(en, de, len);
+}
+
+SlErrorCode Sl2DFaceDecryptRelease()
+{
+	return tutils::Licenser::getInstance()->release();
 }
